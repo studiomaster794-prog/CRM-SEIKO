@@ -73,7 +73,7 @@ function Acesso({ configurar, onOk }) {
       <form className="acesso-card" onSubmit={enviar}>
         <img src={logo} alt="Studio Seiko" />
         <h1>{configurar ? 'Primeiro acesso' : 'Entrar'}</h1>
-        <p>{configurar ? 'Crie a senha desta loja. Os cadastros ficam neste computador.' : (location.hostname.endsWith('github.io') ? 'A tela abre aqui. Os cadastros e a senha ficam no computador da loja.' : 'CRM de clientes do Studio Seiko.')}</p>
+        <p>{configurar ? 'Crie a senha desta loja. Os cadastros ficam neste computador.' : 'CRM de clientes do Studio Seiko.'}</p>
         {configurar && (
           <label className="campo">
             <span>Seu nome</span>
@@ -122,6 +122,12 @@ export default function App() {
     setAoSair(() => {
       if (vivo) setSessao({ autenticado: false, precisaConfigurar: false })
     })
+    if (location.hostname.endsWith('github.io')) {
+      setSessao({ autenticado: true, nome: 'Seiko', precisaConfigurar: false })
+      return () => {
+        vivo = false
+      }
+    }
     api('/api/me')
       .then(async (me) => {
         if (!vivo) return
