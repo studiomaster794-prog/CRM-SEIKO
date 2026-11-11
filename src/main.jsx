@@ -5,5 +5,5 @@ import './styles.css'
 createRoot(document.getElementById('root')).render(<App />)
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
 }

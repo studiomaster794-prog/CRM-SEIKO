@@ -5,6 +5,8 @@ import { Icon } from './icons.jsx'
 import { dataLonga, diaSemana, hojeISO, moeda, primeiroNome, resumo, resumoPromissorias } from './logic.js'
 import { Pagina, DetalhePromissoria, FolhaNota } from './screens.jsx'
 
+const logo = `${import.meta.env.BASE_URL}logo-studio-seiko.png`
+
 const MENU = [
   ['dashboard', 'Painel', 'home', '#/'],
   ['clientes', 'Clientes', 'users', '#/clientes'],
@@ -69,9 +71,9 @@ function Acesso({ configurar, onOk }) {
   return (
     <main className="acesso">
       <form className="acesso-card" onSubmit={enviar}>
-        <img src="/logo-studio-seiko.png" alt="Studio Seiko" />
+        <img src={logo} alt="Studio Seiko" />
         <h1>{configurar ? 'Primeiro acesso' : 'Entrar'}</h1>
-        <p>{configurar ? 'Crie a senha desta loja. Os cadastros ficam neste computador.' : 'CRM de clientes do Studio Seiko.'}</p>
+        <p>{configurar ? 'Crie a senha desta loja. Os cadastros ficam neste computador.' : (location.hostname.endsWith('github.io') ? 'A tela abre aqui. Os cadastros e a senha ficam no computador da loja.' : 'CRM de clientes do Studio Seiko.')}</p>
         {configurar && (
           <label className="campo">
             <span>Seu nome</span>
@@ -295,7 +297,7 @@ export default function App() {
   if (!sessao) {
     return (
       <main className="acesso">
-        <img src="/logo-studio-seiko.png" alt="" />
+        <img src={logo} alt="" />
       </main>
     )
   }
@@ -312,7 +314,7 @@ export default function App() {
       {menu && <button type="button" className="cortina" aria-label="Fechar menu" onClick={() => setMenu(false)} />}
       <aside className={menu ? 'sidebar open' : 'sidebar'}>
         <a className="brand" href="#/">
-          <img src="/logo-studio-seiko.png" alt="Studio Seiko" />
+          <img src={logo} alt="Studio Seiko" />
         </a>
         <nav className="nav" aria-label="Principal">
           {MENU.map(([id, rotulo, icone, href]) => (
