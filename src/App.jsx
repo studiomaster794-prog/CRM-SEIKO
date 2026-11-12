@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, setAoSair } from './api.js'
+import { aoMudarRede, api, setAoAvisar, setAoSair } from './api.js'
 import { FormCliente, FormServico, EscolherCliente, FormPromissoria, FormPagamento, FormProduto } from './forms.jsx'
 import { Icon } from './icons.jsx'
 import { dataLonga, diaSemana, hojeISO, moeda, primeiroNome, resumo, resumoPromissorias } from './logic.js'
@@ -40,7 +40,7 @@ function Modal({ titulo, onClose, children }) {
   )
 }
 
-function Acesso({ configurar, onOk }) {
+function Acesso({ configurar, onOk, offline }) {
   const [nome, setNome] = useState('')
   const [senha, setSenha] = useState('')
   const [confirma, setConfirma] = useState('')
@@ -73,7 +73,7 @@ function Acesso({ configurar, onOk }) {
       <form className="acesso-card" onSubmit={enviar}>
         <img src={logo} alt="Studio Seiko" />
         <h1>{configurar ? 'Primeiro acesso' : 'Entrar'}</h1>
-        <p>{configurar ? 'Crie a senha desta loja. Os cadastros ficam neste computador.' : 'CRM de clientes do Studio Seiko.'}</p>
+        <p>{offline ? 'Sem conexão agora. Se este aparelho já entrou antes, os cadastros abrem sozinhos.' : configurar ? 'Crie a senha desta loja. Os cadastros ficam neste aparelho e sincronizam com o computador.' : 'CRM de clientes do Studio Seiko.'}</p>
         {configurar && (
           <label className="campo">
             <span>Seu nome</span>
@@ -106,6 +106,7 @@ export default function App() {
   const [menu, setMenu] = useState(false)
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
+  const [rede, setRede] = useState({ texto: 'Bem-vindo ao CRM Studio Seiko', pendente: false })
   const hoje = hojeISO()
 
   useEffect(() => {
@@ -122,12 +123,9 @@ export default function App() {
     setAoSair(() => {
       if (vivo) setSessao({ autenticado: false, precisaConfigurar: false })
     })
-    if (location.hostname.endsWith('github.io')) {
-      setSessao({ autenticado: true, nome: 'Seiko', precisaConfigurar: false })
-      return () => {
-        vivo = false
-      }
-    }
+    setAoAvisar((msg) => {
+      if (vivo) setToast(msg)
+    })
     api('/api/me')
       .then(async (me) => {
         if (!vivo) return
@@ -147,6 +145,8 @@ export default function App() {
       vivo = false
     }
   }, [])
+
+  useEffect(() => aoMudarRede(setRede), [])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -309,7 +309,7 @@ export default function App() {
   }
 
   if (!sessao.autenticado) {
-    return <Acesso configurar={sessao.precisaConfigurar} onOk={entrar} />
+    return <Acesso configurar={sessao.precisaConfigurar} offline={sessao.offline} onOk={entrar} />
   }
 
   const ativo = (id) => rota.name === id || (id === 'clientes' && rota.name === 'ficha')
@@ -345,7 +345,7 @@ export default function App() {
             </span>
             <div className="ola">
               <h1>Olá, {primeiroNome(sessao.nome)}!</h1>
-              <p>Bem-vindo ao CRM Studio Seiko</p>
+              <p className={rede.pendente ? 'rede-local' : ''}>{rede.texto}</p>
             </div>
           </div>
           <div className="topbar-right">

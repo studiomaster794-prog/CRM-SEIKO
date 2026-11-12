@@ -304,6 +304,10 @@ button, a {
   font-size: 13.5px;
 }
 
+.rede-local {
+  color: var(--gold-light);
+}
+
 .topbar-right {
   display: flex;
   align-items: center;

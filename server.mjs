@@ -1,16 +1,19 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express from 'express'
 import { createServer as createVite } from 'vite'
+import { aplicarOps, dadosPublicos } from './src/crm-ops.js'
 import { addDays, digits, formatPhone, hojeISO, isISODate, prazoGarantia } from './src/logic.js'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const dataDir = path.join(root, 'data')
 const authFile = path.join(dataDir, 'auth.json')
 const crmFile = path.join(dataDir, 'crm.json')
+const syncFile = path.join(dataDir, 'sync.json')
 const PORT = Number(process.env.PORT) || 5173
 
 fs.mkdirSync(dataDir, { recursive: true })
@@ -111,7 +114,37 @@ function limparNota(v, max) {
   return String(v || '').replace(/\r\n/g, '\n').trim().slice(0, max)
 }
 
+function loadSync() {
+  const salvo = readJson(syncFile, null)
+  if (salvo?.token) return salvo
+  const criado = { token: crypto.randomBytes(24).toString('hex') }
+  writeJson(syncFile, criado)
+  return criado
+}
+
+function tokenConfere(req) {
+  const header = String(req.headers['x-seiko-token'] || '')
+  if (!header) return false
+  const salvo = loadSync()
+  const a = Buffer.from(header)
+  const b = Buffer.from(salvo.token)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+function enderecosLan() {
+  const ips = []
+  for (const [nome, lista] of Object.entries(os.networkInterfaces())) {
+    if (/virtual|vethernet|wsl|hyper-v|bluetooth|vmware|vbox|loopback|tailscale|zerotier/i.test(nome)) continue
+    for (const item of lista || []) {
+      const v4 = item.family === 'IPv4' || item.family === 4
+      if (v4 && !item.internal) ips.push(`http://${item.address}:${PORT}`)
+    }
+  }
+  return ips
+}
+
 function exigirLogin(req, res, next) {
+  if (tokenConfere(req)) return next()
   const auth = loadAuth()
   if (!auth) return res.status(401).json({ erro: 'Configure o acesso da loja' })
   const sessao = abrirToken(cookies(req).seiko, auth.secret)
@@ -293,7 +326,18 @@ function telefoneDuplicado(clients, telefone, ignorarId) {
 
 const app = express()
 app.disable('x-powered-by')
-app.use(express.json({ limit: '1mb' }))
+app.use((req, res, next) => {
+  const origem = req.headers.origin
+  if (origem) {
+    res.setHeader('Access-Control-Allow-Origin', origem)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-seiko-token')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+app.use(express.json({ limit: '12mb' }))
 
 app.get('/api/me', (req, res) => {
   const auth = loadAuth()
@@ -336,14 +380,20 @@ app.post('/api/logout', (_req, res) => {
 })
 
 app.get('/api/data', exigirLogin, (_req, res) => {
-  const crm = loadCrm()
-  res.json({
-    clients: crm.clients.map(clientePublico),
-    services: crm.services.map(servicoPublico),
-    promissorias: crm.promissorias.map(promissoriaPublica),
-    credor: crm.credor || { nome: 'Studio Seiko', documento: '', telefone: '', endereco: '', cidade: 'Cururupu-MA' },
-    ultimoBackup: crm.ultimoBackup || '',
-  })
+  res.json(dadosPublicos(loadCrm()))
+})
+
+app.get('/api/rede', exigirLogin, (_req, res) => {
+  res.json({ enderecos: enderecosLan(), token: loadSync().token })
+})
+
+app.post('/api/sync', exigirLogin, async (req, res, next) => {
+  try {
+    const out = await alterarCrm((crm) => aplicarOps(crm, req.body?.ops || []))
+    res.json(out)
+  } catch (err) {
+    next(err)
+  }
 })
 
 app.post('/api/clients', exigirLogin, async (req, res, next) => {
@@ -802,6 +852,8 @@ server.on('error', (err) => {
   }
   throw err
 })
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`CRM Studio Seiko em http://127.0.0.1:${PORT}`)
+  for (const url of enderecosLan()) console.log(`Na rede da loja: ${url}`)
+  console.log('Sem internet, o navegador abre a ultima copia salva neste aparelho.')
 })

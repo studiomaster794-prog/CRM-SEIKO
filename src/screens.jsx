@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api } from './api.js'
+import { api, lerHub, salvarHub, sincronizarAgora } from './api.js'
 import { Icon, IconeWhatsApp } from './icons.jsx'
 import {
   JANELA_POS,
@@ -1177,6 +1177,12 @@ function Ajustes({ dados, recarregar, avisar }) {
     cidade: dados.credor?.cidade || 'Cururupu-MA',
   })
   const [ocupado, setOcupado] = useState(false)
+  const [hub, setHub] = useState(() => lerHub())
+  const [rede, setRede] = useState(null)
+
+  useEffect(() => {
+    api('/api/rede').then(setRede).catch(() => setRede(null))
+  }, [])
 
   useEffect(() => {
     setF({
@@ -1206,21 +1212,42 @@ function Ajustes({ dados, recarregar, avisar }) {
     }
   }
 
-  async function baixarBackup() {
-    const res = await fetch('/api/backup.json', { credentials: 'same-origin' })
-    if (!res.ok) {
-      avisar('Não foi possível baixar o backup')
-      return
-    }
-    const blob = await res.blob()
+  function baixarBlob(blob) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `backup-studio-seiko.json`
+    a.download = 'backup-studio-seiko.json'
     a.click()
     URL.revokeObjectURL(url)
-    await recarregar()
-    avisar('Backup baixado')
+  }
+
+  async function baixarBackup() {
+    try {
+      const res = await fetch('/api/backup.json', { credentials: 'same-origin' })
+      if (res.ok) {
+        baixarBlob(await res.blob())
+        await recarregar()
+        avisar('Backup baixado')
+        return
+      }
+    } catch {
+      /* segue com a cópia deste aparelho */
+    }
+    const dados = await api('/api/data')
+    baixarBlob(new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' }))
+    avisar('Backup deste aparelho baixado')
+  }
+
+  async function salvarHubLocal(evento) {
+    evento.preventDefault()
+    salvarHub(hub.url, hub.token)
+    try {
+      await sincronizarAgora()
+      await recarregar()
+      avisar('Sincronização atualizada')
+    } catch (err) {
+      avisar(err.message)
+    }
   }
 
   async function restaurar(evento) {
@@ -1290,9 +1317,30 @@ function Ajustes({ dados, recarregar, avisar }) {
           </div>
         </form>
         <article className="card">
+          <header className="card-head"><h2>Celular e notebook</h2></header>
+          <p className="muted">No balcão, abra um destes endereços no outro aparelho, na mesma rede, e entre com a senha. A partir daí ele funciona sem internet e sincroniza quando o computador estiver ligado.</p>
+          {rede?.enderecos?.length ? (
+            <ul className="lista plain">
+              {rede.enderecos.map((url) => <li key={url}><strong>{url}</strong></li>)}
+            </ul>
+          ) : <p className="muted">Endereço da rede aparece quando este computador está com o CRM aberto.</p>}
+          {rede?.token && <p><span className="muted">Código de sincronização</span><br /><strong>{rede.token}</strong></p>}
+          <form onSubmit={salvarHubLocal}>
+            <label className="campo">
+              <span>Endereço do computador (no link do GitHub)</span>
+              <input value={hub.url} onChange={(e) => setHub((atual) => ({ ...atual, url: e.target.value }))} placeholder="http://192.168.0.10:5173" inputMode="url" />
+            </label>
+            <label className="campo">
+              <span>Código de sincronização</span>
+              <input value={hub.token} onChange={(e) => setHub((atual) => ({ ...atual, token: e.target.value }))} autoComplete="off" />
+            </label>
+            <button type="submit" className="btn ghost">Salvar e sincronizar</button>
+          </form>
+        </article>
+        <article className="card">
           <header className="card-head"><h2>Backup, segurança e exportação</h2></header>
           <p><span className="muted">Último backup manual</span><br /><strong>{quando}</strong></p>
-          <p className="dica">Os cadastros ficam neste computador. O backup JSON guarda tudo.</p>
+          <p className="dica">Sem internet dá para lançar pagamento neste aparelho. Quando o computador da loja responder, a alteração sobe sozinha.</p>
           <div className="acoes">
             <button type="button" onClick={baixarBackup}>Baixar backup (JSON)</button>
             <label className="arquivo-btn">
