@@ -26,10 +26,10 @@ function lerRota(hash) {
   return { name: 'dashboard' }
 }
 
-function Modal({ titulo, onClose, children }) {
+function Modal({ titulo, onClose, className = '', children }) {
   return (
     <div className="backdrop">
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <div className={`modal ${className}`} role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
         <header>
           <h2 id="modal-titulo">{titulo}</h2>
           <button type="button" className="fechar" onClick={onClose} aria-label="Fechar">×</button>
@@ -444,7 +444,7 @@ export default function App() {
         </Modal>
       )}
       {modal?.tipo === 'promissoria' && (
-        <Modal titulo={modal.promissoria ? 'Editar promissória' : 'Nova promissória'} onClose={() => setModal(null)}>
+        <Modal titulo={modal.promissoria ? 'Editar promissória' : 'Nova promissória'} className="modal-promissoria" onClose={() => setModal(null)}>
           <FormPromissoria
             inicial={modal.promissoria}
             clienteId={modal.clienteId}

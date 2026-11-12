@@ -1786,17 +1786,57 @@ button.lista-main {
 }
 
 .grid-2,
-.grid-endereco {
+.grid-3,
+.grid-nome-nasc,
+.grid-endereco,
+.grid-endereco-completo {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .grid-2 {
   grid-template-columns: 1fr 1fr;
 }
 
+.grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.grid-nome-nasc {
+  grid-template-columns: 1.8fr 1.2fr;
+}
+
 .grid-endereco {
   grid-template-columns: 1.7fr 0.8fr;
+}
+
+.grid-endereco-completo {
+  grid-template-columns: 2fr 0.7fr 1.3fr;
+}
+
+.modal-promissoria {
+  width: min(720px, 100%);
+}
+
+.resumo-venda-compacto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.resumo-venda-compacto b {
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumo-venda-compacto b.txt-devendo {
+  color: #f87171;
 }
 
 .alerta {
@@ -2148,7 +2188,10 @@ button.link:hover {
   }
 
   .grid-2,
+  .grid-3,
+  .grid-nome-nasc,
   .grid-endereco,
+  .grid-endereco-completo,
   .add-produto {
     grid-template-columns: 1fr;
   }
@@ -2249,6 +2292,49 @@ button.link:hover {
     padding: 1px 7px;
     font-size: 10px;
     margin-top: 2px;
+  }
+}
+
+/* ==========================================================================
+   COMPACTAÇÃO PARA NOTEBOOKS (TELAS COM ALTURA REDUZIDA <= 850px)
+   ========================================================================== */
+@media (max-height: 850px) {
+  .modal {
+    padding: 10px 16px 8px;
+    max-height: 96vh;
+  }
+
+  .modal header {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+  }
+
+  .modal h2 {
+    font-size: 17px;
+  }
+
+  .modal .form {
+    gap: 6px;
+  }
+
+  .modal .campo {
+    gap: 2px;
+  }
+
+  .modal .campo span {
+    font-size: 11px;
+  }
+
+  .modal input,
+  .modal textarea,
+  .modal select {
+    padding: 6px 9px;
+    font-size: 13px;
+  }
+
+  .modal .row-btns.fim {
+    margin-top: 4px;
+    padding-top: 6px;
   }
 }
 

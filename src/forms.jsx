@@ -447,9 +447,14 @@ export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose,
     <form className="form" onSubmit={enviar}>
       {modoNovo && (
         <>
-          <Campo label="Nome completo">
-            <input value={pessoa.nome} onChange={(e) => nomeNoCampo(e, (nome) => { setErro(''); setPessoa((atual) => ({ ...atual, nome })) })} autoFocus required maxLength={120} placeholder="Nome do cliente" />
-          </Campo>
+          <div className="grid-nome-nasc">
+            <Campo label="Nome completo">
+              <input value={pessoa.nome} onChange={(e) => nomeNoCampo(e, (nome) => { setErro(''); setPessoa((atual) => ({ ...atual, nome })) })} autoFocus required maxLength={120} placeholder="Nome do cliente" />
+            </Campo>
+            <Campo label="Data de nascimento">
+              <input type="date" value={pessoa.nascimento} max={hojeISO()} onChange={(e) => setPessoa((atual) => ({ ...atual, nascimento: e.target.value }))} />
+            </Campo>
+          </div>
           {sugestoes.length > 0 && (
             <div className="escolha">
               {sugestoes.map((c) => (
@@ -471,13 +476,10 @@ export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose,
               <input value={pessoa.cpf} onChange={(e) => setPessoa((atual) => ({ ...atual, cpf: formatCpf(e.target.value) }))} inputMode="numeric" placeholder="000.000.000-00" />
             </Campo>
           </div>
-          <Campo label="Data de nascimento">
-            <input type="date" value={pessoa.nascimento} max={hojeISO()} onChange={(e) => setPessoa((atual) => ({ ...atual, nascimento: e.target.value }))} />
-          </Campo>
-          <Campo label="Endereço">
-            <input value={pessoa.endereco} onChange={(e) => setPessoa((atual) => ({ ...atual, endereco: e.target.value }))} maxLength={180} placeholder="Rua" />
-          </Campo>
-          <div className="grid-2">
+          <div className="grid-endereco-completo">
+            <Campo label="Endereço">
+              <input value={pessoa.endereco} onChange={(e) => setPessoa((atual) => ({ ...atual, endereco: e.target.value }))} maxLength={180} placeholder="Rua" />
+            </Campo>
             <Campo label="Número">
               <input value={pessoa.numero} onChange={(e) => setPessoa((atual) => ({ ...atual, numero: e.target.value }))} maxLength={20} placeholder="119" />
             </Campo>
@@ -533,8 +535,7 @@ export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose,
           ))}
         </ul>
       )}
-      <p className="dica">Valor da venda: {moeda(valorN)}</p>
-      <div className="grid-2">
+      <div className="grid-3">
         <Campo label="Entrada">
           <input value={f.entrada} onChange={(e) => set('entrada', e.target.value)} inputMode="decimal" placeholder="0,00" />
         </Campo>
@@ -545,9 +546,13 @@ export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose,
           <input type="date" value={f.vencimento} onChange={(e) => set('vencimento', e.target.value)} required />
         </Campo>
       </div>
-      <p className={devendo > 0.01 ? 'dica txt-devendo' : 'dica'}>Devendo nesta venda: {devendo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+      <div className="resumo-venda-compacto">
+        <span>Venda: <b>{moeda(valorN)}</b></span>
+        <span>Entrada: <b>{moeda(entradaN)}</b></span>
+        <span>Devendo: <b className={devendo > 0.01 ? 'txt-devendo' : ''}>{moeda(devendo)}</b></span>
+      </div>
       <Campo label="Observações">
-        <textarea rows={2} value={f.observacoes} onChange={(e) => set('observacoes', e.target.value)} maxLength={2000} />
+        <textarea rows={1} value={f.observacoes} onChange={(e) => set('observacoes', e.target.value)} maxLength={2000} placeholder="Opcional" />
       </Campo>
       {erro && <p className="erro">{erro}</p>}
       <div className="row-btns fim">
