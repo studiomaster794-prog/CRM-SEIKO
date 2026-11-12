@@ -1,4 +1,4 @@
-const CACHE = 'seiko-offline-1'
+const CACHE = 'seiko-offline-2'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
