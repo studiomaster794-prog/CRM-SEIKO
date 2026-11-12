@@ -300,7 +300,7 @@ function pessoaDoCliente(c) {
 export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose, onEditarCliente }) {
   const [f, setF] = useState({
     clienteId: inicial?.clienteId || clienteId || '',
-    entrada: inicial ? String(inicial.entrada || 0) : '0',
+    entrada: inicial && Number(inicial.entrada) > 0 ? String(inicial.entrada) : '',
     dataVenda: inicial?.dataVenda || hojeISO(),
     vencimento: inicial?.vencimento || addDays(hojeISO(), 30),
     observacoes: inicial?.observacoes || '',
@@ -537,7 +537,7 @@ export function FormPromissoria({ inicial, clienteId, clients, onSalvo, onClose,
       )}
       <div className="grid-3">
         <Campo label="Entrada">
-          <input value={f.entrada} onChange={(e) => set('entrada', e.target.value)} inputMode="decimal" placeholder="0,00" />
+          <input value={f.entrada} onChange={(e) => set('entrada', e.target.value)} onFocus={(e) => e.target.select()} inputMode="decimal" placeholder="0,00" />
         </Campo>
         <Campo label="Data da venda">
           <input type="date" value={f.dataVenda} max={hojeISO()} onChange={(e) => set('dataVenda', e.target.value)} required />
