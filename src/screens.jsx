@@ -1340,7 +1340,7 @@ function Ajustes({ dados, recarregar, avisar }) {
         <article className="card">
           <header className="card-head"><h2>Backup, segurança e exportação</h2></header>
           <p><span className="muted">Último backup manual</span><br /><strong>{quando}</strong></p>
-          <p className="dica">Sem internet dá para lançar pagamento neste aparelho. Quando o computador da loja responder, a alteração sobe sozinha.</p>
+          <p className="dica">Sem internet dá para lançar pagamento neste aparelho. Com internet, a nuvem crm-seiko sincroniza celular, notebook e computador.</p>
           <div className="acoes">
             <button type="button" onClick={baixarBackup}>Baixar backup (JSON)</button>
             <label className="arquivo-btn">

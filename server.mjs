@@ -67,6 +67,16 @@ function senhaConfere(senha, auth) {
   return got.length === exp.length && crypto.timingSafeEqual(got, exp)
 }
 
+function usuariosDe(auth) {
+  if (Array.isArray(auth?.usuarios) && auth.usuarios.length) return auth.usuarios
+  if (auth?.hash) return [{ id: 'dono', nome: auth.nome || 'Dono', papel: 'dono', salt: auth.salt, hash: auth.hash }]
+  return []
+}
+
+function usuarioPorSenha(auth, senha) {
+  return usuariosDe(auth).find((usuario) => senhaConfere(senha, usuario)) || null
+}
+
 function assinar(payload, secret) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
   const sig = crypto.createHmac('sha256', secret).update(body).digest('base64url')
@@ -144,12 +154,23 @@ function enderecosLan() {
 }
 
 function exigirLogin(req, res, next) {
-  if (tokenConfere(req)) return next()
+  if (tokenConfere(req)) {
+    req.papel = 'dono'
+    return next()
+  }
   const auth = loadAuth()
   if (!auth) return res.status(401).json({ erro: 'Configure o acesso da loja' })
   const sessao = abrirToken(cookies(req).seiko, auth.secret)
   if (!sessao) return res.status(401).json({ erro: 'Entre novamente' })
+  req.papel = sessao.papel === 'funcionario' ? 'funcionario' : 'dono'
   next()
+}
+
+function exigirDono(req, res, next) {
+  exigirLogin(req, res, () => {
+    if (req.papel === 'funcionario') return res.status(403).json({ erro: 'Só o dono acessa esta parte' })
+    next()
+  })
 }
 
 function clientePublico(c) {
@@ -344,7 +365,13 @@ app.get('/api/me', (req, res) => {
   if (!auth) return res.json({ autenticado: false, precisaConfigurar: true })
   const sessao = abrirToken(cookies(req).seiko, auth.secret)
   if (!sessao) return res.json({ autenticado: false, precisaConfigurar: false })
-  res.json({ autenticado: true, precisaConfigurar: false, nome: auth.nome })
+  const usuario = usuariosDe(auth).find((item) => item.id === sessao.id)
+  res.json({
+    autenticado: true,
+    precisaConfigurar: false,
+    nome: usuario?.nome || sessao.nome || auth.nome || 'Seiko',
+    papel: sessao.papel === 'funcionario' ? 'funcionario' : 'dono',
+  })
 })
 
 app.post('/api/setup', (req, res) => {
@@ -361,17 +388,19 @@ app.post('/api/setup', (req, res) => {
     secret: crypto.randomBytes(32).toString('hex'),
   }
   writeJson(authFile, auth)
-  res.setHeader('Set-Cookie', cookieSessao(assinar({ exp: Date.now() + 2592000000 }, auth.secret)))
-  res.json({ nome })
+  res.setHeader('Set-Cookie', cookieSessao(assinar({ exp: Date.now() + 2592000000, id: 'dono', nome, papel: 'dono' }, auth.secret)))
+  res.json({ nome, papel: 'dono' })
 })
 
 app.post('/api/login', (req, res) => {
   const auth = loadAuth()
   if (!auth) return res.status(400).json({ erro: 'Configure o acesso da loja' })
   const senha = String(req.body?.senha || '')
-  if (!senhaConfere(senha, auth)) return res.status(401).json({ erro: 'Senha incorreta' })
-  res.setHeader('Set-Cookie', cookieSessao(assinar({ exp: Date.now() + 2592000000 }, auth.secret)))
-  res.json({ nome: auth.nome })
+  const usuario = usuarioPorSenha(auth, senha)
+  if (!usuario) return res.status(401).json({ erro: 'Senha incorreta' })
+  const papel = usuario.papel === 'funcionario' ? 'funcionario' : 'dono'
+  res.setHeader('Set-Cookie', cookieSessao(assinar({ exp: Date.now() + 2592000000, id: usuario.id, nome: usuario.nome, papel }, auth.secret)))
+  res.json({ nome: usuario.nome, papel })
 })
 
 app.post('/api/logout', (_req, res) => {
@@ -383,8 +412,31 @@ app.get('/api/data', exigirLogin, (_req, res) => {
   res.json(dadosPublicos(loadCrm()))
 })
 
-app.get('/api/rede', exigirLogin, (_req, res) => {
+app.get('/api/rede', exigirDono, (_req, res) => {
   res.json({ enderecos: enderecosLan(), token: loadSync().token })
+})
+
+app.get('/api/nuvem', exigirDono, (_req, res) => {
+  const nuvem = readJson(path.join(dataDir, 'supabase.json'), null)
+  if (!nuvem?.url || !nuvem?.chave || !nuvem?.segredo) return res.status(404).json({ erro: 'Nuvem ainda não configurada' })
+  res.json({ url: String(nuvem.url).replace(/\/$/, ''), chave: nuvem.chave, segredo: nuvem.segredo })
+})
+
+app.post('/api/estado', exigirLogin, async (req, res, next) => {
+  const body = req.body || {}
+  if (!Array.isArray(body.clients)) return res.status(400).json({ erro: 'Estado inválido' })
+  try {
+    const out = await alterarCrm((crm) => {
+      crm.clients = body.clients
+      crm.services = Array.isArray(body.services) ? body.services : []
+      crm.promissorias = Array.isArray(body.promissorias) ? body.promissorias : []
+      if (body.credor && typeof body.credor === 'object') crm.credor = body.credor
+      return dadosPublicos(crm)
+    })
+    res.json(out)
+  } catch (err) {
+    next(err)
+  }
 })
 
 app.post('/api/sync', exigirLogin, async (req, res, next) => {
@@ -683,7 +735,7 @@ app.put('/api/credor', exigirLogin, async (req, res, next) => {
   }
 })
 
-app.get('/api/backup.json', exigirLogin, async (_req, res, next) => {
+app.get('/api/backup.json', exigirDono, async (_req, res, next) => {
   try {
     const crm = await alterarCrm((dados) => {
       dados.ultimoBackup = new Date().toISOString()
@@ -767,7 +819,7 @@ function converterBackup(body) {
   }
 }
 
-app.post('/api/backup/restaurar', exigirLogin, async (req, res, next) => {
+app.post('/api/backup/restaurar', exigirDono, async (req, res, next) => {
   try {
     const convertido = converterBackup(req.body || {})
     if (!convertido) return res.status(400).json({ erro: 'Arquivo de backup inválido' })
@@ -792,7 +844,7 @@ app.post('/api/backup/restaurar', exigirLogin, async (req, res, next) => {
   }
 })
 
-app.post('/api/reset', exigirLogin, async (_req, res, next) => {
+app.post('/api/reset', exigirDono, async (_req, res, next) => {
   try {
     await alterarCrm((crm) => {
       crm.clients = []

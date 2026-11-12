@@ -73,7 +73,7 @@ function Acesso({ configurar, onOk, offline }) {
       <form className="acesso-card" onSubmit={enviar}>
         <img src={logo} alt="Studio Seiko" />
         <h1>{configurar ? 'Primeiro acesso' : 'Entrar'}</h1>
-        <p>{offline ? 'Sem conexão agora. Se este aparelho já entrou antes, os cadastros abrem sozinhos.' : configurar ? 'Crie a senha desta loja. Os cadastros ficam neste aparelho e sincronizam com o computador.' : 'CRM de clientes do Studio Seiko.'}</p>
+        <p>{configurar ? 'Crie a senha desta loja.' : 'Digite sua senha para acessar o sistema.'}</p>
         {configurar && (
           <label className="campo">
             <span>Seu nome</span>
@@ -312,18 +312,21 @@ export default function App() {
     return <Acesso configurar={sessao.precisaConfigurar} offline={sessao.offline} onOk={entrar} />
   }
 
-  const ativo = (id) => rota.name === id || (id === 'clientes' && rota.name === 'ficha')
+  const funcionario = sessao.papel === 'funcionario'
+  const itensMenu = funcionario ? MENU.filter((item) => item[0] !== 'dashboard' && item[0] !== 'ajustes') : MENU
+  const rotaVista = funcionario && (rota.name === 'dashboard' || rota.name === 'ajustes') ? { name: 'clientes' } : rota
+  const ativo = (id) => rotaVista.name === id || (id === 'clientes' && rotaVista.name === 'ficha')
   const ano = hoje.slice(0, 4)
 
   return (
     <div className="shell">
       {menu && <button type="button" className="cortina" aria-label="Fechar menu" onClick={() => setMenu(false)} />}
       <aside className={menu ? 'sidebar open' : 'sidebar'}>
-        <a className="brand" href="#/">
+        <a className="brand" href={funcionario ? '#/clientes' : '#/'}>
           <img src={logo} alt="Studio Seiko" />
         </a>
         <nav className="nav" aria-label="Principal">
-          {MENU.map(([id, rotulo, icone, href]) => (
+          {itensMenu.map(([id, rotulo, icone, href]) => (
             <a key={id} href={href} className={ativo(id) ? 'active' : ''} aria-current={ativo(id) ? 'page' : undefined}>
               <Icon name={icone} /> {rotulo}
             </a>
@@ -367,7 +370,7 @@ export default function App() {
         </header>
         <div className="conteudo">
           <Pagina
-            route={rota}
+            route={rotaVista}
             dados={dados}
             hoje={hoje}
             abrirCliente={abrirCliente}
