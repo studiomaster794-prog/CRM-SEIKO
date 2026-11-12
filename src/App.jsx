@@ -2,10 +2,27 @@ import { useEffect, useMemo, useState } from 'react'
 import { aoMudarRede, api, setAoAvisar, setAoSair } from './api.js'
 import { FormCliente, FormServico, EscolherCliente, FormPromissoria, FormPagamento, FormProduto } from './forms.jsx'
 import { Icon } from './icons.jsx'
-import { dataLonga, diaSemana, hojeISO, moeda, primeiroNome, resumo, resumoPromissorias } from './logic.js'
+import { dataLonga, diaSemana, hojeISO, moeda, primeiroNome, resumo, resumoPromissorias, obterTodasNotificacoes } from './logic.js'
 import { Pagina, DetalhePromissoria, FolhaNota } from './screens.jsx'
 
 const logo = `${import.meta.env.BASE_URL}logo-studio-seiko.png`
+
+const CHAVE_NOTIFS_LIDAS = 'seiko_notifs_lidas_v1'
+
+function carregarLidas() {
+  try {
+    const s = localStorage.getItem(CHAVE_NOTIFS_LIDAS)
+    return new Set(s ? JSON.parse(s) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function salvarLidas(set) {
+  try {
+    localStorage.setItem(CHAVE_NOTIFS_LIDAS, JSON.stringify([...set]))
+  } catch {}
+}
 
 const MENU = [
   ['dashboard', 'Painel', 'home', '#/'],
@@ -14,13 +31,14 @@ const MENU = [
   ['servicos', 'Serviços', 'wrench', '#/servicos'],
   ['garantias', 'Garantias', 'shield', '#/garantias'],
   ['aniversarios', 'Aniversariantes', 'cake', '#/aniversarios'],
-  ['contatos', 'Contatos', 'chat', '#/contatos'],
+  ['notificacoes', 'Notificações', 'bell', '#/notificacoes'],
   ['ajustes', 'Ajustes', 'gear', '#/ajustes'],
 ]
 
 function lerRota(hash) {
   const partes = (hash || '#/').replace(/^#/, '').split('/').filter(Boolean)
   if (partes[0] === 'clientes' && partes[1]) return { name: 'ficha', id: decodeURIComponent(partes[1]) }
+  if (partes[0] === 'contatos') return { name: 'notificacoes' }
   const conhecida = MENU.find((item) => item[0] === partes[0])
   if (conhecida) return { name: conhecida[0] }
   return { name: 'dashboard' }
@@ -154,11 +172,23 @@ export default function App() {
     return () => clearTimeout(id)
   }, [toast])
 
-  const totalPendencias = useMemo(() => {
-    const info = resumo(dados.clients || [], dados.services || [], hoje)
-    const fin = resumoPromissorias(dados.promissorias || [], hoje)
-    return (info.acompanhar || 0) + (info.vencidas || 0) + (fin.atrasadas || 0)
+  const [lidas, setLidas] = useState(carregarLidas)
+
+  const notifs = useMemo(() => {
+    return obterTodasNotificacoes(dados.clients || [], dados.services || [], dados.promissorias || [], hoje)
   }, [dados, hoje])
+
+  const naoLidas = useMemo(() => {
+    return notifs.todas.filter((n) => !lidas.has(n.id))
+  }, [notifs, lidas])
+
+  const totalPendencias = naoLidas.length
+
+  function marcarTodasLidas() {
+    const novo = new Set([...lidas, ...notifs.todas.map((n) => n.id)])
+    setLidas(novo)
+    salvarLidas(novo)
+  }
 
   async function recarregar() {
     setDados(await api('/api/data'))
@@ -359,7 +389,13 @@ export default function App() {
                 <span>{diaSemana(hoje)}</span>
               </div>
             </div>
-            <a href="#/contatos" className="btn-icon-top" title={totalPendencias > 0 ? `${totalPendencias} pendência(s) para acompanhar` : 'Sem pendências no momento'} aria-label="Notificações">
+            <a
+              href="#/notificacoes"
+              className="btn-icon-top"
+              onClick={marcarTodasLidas}
+              title={totalPendencias > 0 ? `${totalPendencias} nova(s) notificação(ões)` : 'Sem novas notificações'}
+              aria-label="Notificações"
+            >
               <Icon name="bell" />
               {totalPendencias > 0 && <span className="badge-notif">{totalPendencias > 9 ? '9+' : totalPendencias}</span>}
             </a>
@@ -384,6 +420,8 @@ export default function App() {
             excluirPromissoria={excluirPromissoria}
             recarregar={recarregar}
             avisar={setToast}
+            lidas={lidas}
+            onMarcarTodasLidas={marcarTodasLidas}
           />
         </div>
       </div>

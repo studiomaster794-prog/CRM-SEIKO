@@ -31,6 +31,7 @@ import {
   textoPrazo,
   valorExtenso,
   waLink,
+  obterTodasNotificacoes,
 } from './logic.js'
 
 function msgOi(nome) {
@@ -126,7 +127,7 @@ export function Pagina({
   route, dados, hoje,
   abrirCliente, abrirServico, excluirCliente, excluirServico,
   abrirPromissoria, abrirPagamento, verPromissoria, imprimirPromissoria, excluirPromissoria,
-  recarregar, avisar,
+  recarregar, avisar, lidas, onMarcarTodasLidas,
 }) {
   const { clients, services, promissorias = [] } = dados
   if (route.name === 'ficha') {
@@ -167,7 +168,18 @@ export function Pagina({
   }
   if (route.name === 'garantias') return <Garantias clients={clients} services={services} hoje={hoje} />
   if (route.name === 'aniversarios') return <Aniversarios clients={clients} hoje={hoje} />
-  if (route.name === 'contatos') return <Contatos clients={clients} services={services} hoje={hoje} />
+  if (route.name === 'contatos' || route.name === 'notificacoes') {
+    return (
+      <Notificacoes
+        clients={clients}
+        services={services}
+        promissorias={promissorias}
+        hoje={hoje}
+        lidas={lidas}
+        onMarcarTodasLidas={onMarcarTodasLidas}
+      />
+    )
+  }
   if (route.name === 'ajustes') return <Ajustes dados={dados} recarregar={recarregar} avisar={avisar} />
   return (
     <Painel
@@ -1099,71 +1111,90 @@ function BlocoNiver({ titulo, lista, hoje, vazio }) {
   )
 }
 
-function Contatos({ clients, services, hoje }) {
-  const grupos = gruposContato(clients, services, hoje)
-  const blocos = [
-    {
-      titulo: 'Depois do serviço',
-      texto: 'Atendimento nos últimos 7 dias.',
-      itens: grupos.pos.map((item) => ({
-        id: item.cliente.id,
-        cliente: item.cliente,
-        detalhe: `${item.servico.tipo} em ${dataCurta(item.servico.data)}`,
-        mensagem: msgPos(item.cliente.nome),
-      })),
-    },
-    {
-      titulo: 'Garantia perto de vencer',
-      texto: 'Vence nos próximos 15 dias.',
-      itens: grupos.garantia.map((item) => ({
-        id: item.cliente.id + item.servico.id,
-        cliente: item.cliente,
-        detalhe: `${item.servico.tipo} · ${textoPrazo(item.dias)}`,
-        mensagem: msgGarantia(item.cliente.nome, item.servico.garantiaAte),
-      })),
-    },
-    {
-      titulo: 'Há tempo sem voltar',
-      texto: 'Último contato ou serviço há mais de 12 meses.',
-      itens: grupos.sumidos.map((item) => ({
-        id: item.cliente.id,
-        cliente: item.cliente,
-        detalhe: `Desde ${dataCurta(item.desde)}`,
-        mensagem: msgRetorno(item.cliente.nome),
-      })),
-    },
-  ]
+function Notificacoes({ clients, services, promissorias, hoje, lidas = new Set(), onMarcarTodasLidas }) {
+  const notifs = useMemo(() => {
+    return obterTodasNotificacoes(clients, services, promissorias, hoje)
+  }, [clients, services, promissorias, hoje])
+
+  const [filtro, setFiltro] = useState('todas')
+
+  const itens = useMemo(() => {
+    if (filtro === 'aniversario') return notifs.nivers
+    if (filtro === 'garantia') return notifs.garantias
+    if (filtro === 'cobranca') return notifs.cobrancas
+    return notifs.todas
+  }, [notifs, filtro])
+
+  const totalNaoLidas = notifs.todas.filter((n) => !lidas.has(n.id)).length
 
   return (
     <section>
       <header className="page-head">
         <div>
-          <h2>Contatos</h2>
-          <p>O botão abre a conversa com a mensagem pronta. O envio continua manual.</p>
+          <h2>Notificações & Avisos</h2>
+          <p>Aniversários, garantias perto de vencer e clientes com cobranças pendentes há mais de 2 meses.</p>
         </div>
+        {onMarcarTodasLidas && (
+          <button type="button" className="btn ghost" onClick={onMarcarTodasLidas}>
+            {totalNaoLidas > 0 ? 'Limpar avisos do sino' : 'Avisos já visualizados'}
+          </button>
+        )}
       </header>
-      {blocos.map((bloco) => (
-        <section key={bloco.titulo} className="card bloco">
-          <h3>{bloco.titulo}</h3>
-          <p className="muted">{bloco.texto}</p>
-          {bloco.itens.length === 0 ? <p className="muted">Ninguém nesta lista.</p> : (
-            <ul className="lista plain">
-              {bloco.itens.map((item) => (
-                <li key={item.id}>
-                  <a className="lista-main" href={`#/clientes/${item.cliente.id}`}>
-                    <Pessoa cliente={item.cliente} />
-                    <span>
-                      <strong>{item.cliente.nome}</strong>
-                      <small>{item.detalhe}</small>
-                    </span>
-                  </a>
-                  <Zap telefone={item.cliente.telefone} opcoes={[{ titulo: 'Falar', texto: item.mensagem }]} direto />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+
+      <div className="filtro-notifs">
+        <button
+          type="button"
+          className={`tab-notif ${filtro === 'todas' ? 'ativo' : ''}`}
+          onClick={() => setFiltro('todas')}
+        >
+          Todas <span>{notifs.total}</span>
+        </button>
+        <button
+          type="button"
+          className={`tab-notif ${filtro === 'aniversario' ? 'ativo' : ''}`}
+          onClick={() => setFiltro('aniversario')}
+        >
+          Aniversários <span>{notifs.nivers.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`tab-notif ${filtro === 'garantia' ? 'ativo' : ''}`}
+          onClick={() => setFiltro('garantia')}
+        >
+          Garantias <span>{notifs.garantias.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`tab-notif ${filtro === 'cobranca' ? 'ativo' : ''}`}
+          onClick={() => setFiltro('cobranca')}
+        >
+          Cobrança 2-3m <span>{notifs.cobrancas.length}</span>
+        </button>
+      </div>
+
+      <section className="card">
+        {itens.length === 0 ? (
+          <p className="muted" style={{ padding: '24px 16px', textAlign: 'center' }}>
+            Nenhuma notificação nesta categoria no momento.
+          </p>
+        ) : (
+          <ul className="lista plain lista-notificacoes">
+            {itens.map((item) => (
+              <li key={item.id} className={item.urgente ? 'item-urgente' : ''}>
+                <a className="lista-main" href={`#/clientes/${item.cliente.id}`}>
+                  <Pessoa cliente={item.cliente} />
+                  <span>
+                    <strong>{item.cliente.nome}</strong>
+                    <small>{item.detalhe}</small>
+                    <span className={`tag-notif tag-${item.tipo}`}>{item.titulo}</span>
+                  </span>
+                </a>
+                <Zap telefone={item.cliente.telefone} opcoes={[{ titulo: 'Falar', texto: item.mensagem }]} direto />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   )
 }

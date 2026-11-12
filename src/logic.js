@@ -452,3 +452,110 @@ export function valorExtenso(valor) {
   }
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+
+export function notificacoesAniversario(clients, hoje) {
+  const h = md(hoje)
+  if (!h) return []
+  const lista = []
+  for (const c of clients || []) {
+    if (!c.nascimento || !isISODate(c.nascimento)) continue
+    const n = md(c.nascimento)
+    if (!n) continue
+    let dtNiver = `${h.y}-${String(n.m).padStart(2, '0')}-${String(n.d).padStart(2, '0')}`
+    if (!isISODate(dtNiver)) dtNiver = `${h.y}-${String(n.m).padStart(2, '0')}-28`
+    let diff = diasEntre(hoje, dtNiver)
+    if (diff < 0 && h.m === 12 && n.m === 1) {
+      dtNiver = `${h.y + 1}-${String(n.m).padStart(2, '0')}-${String(n.d).padStart(2, '0')}`
+      diff = diasEntre(hoje, dtNiver)
+    }
+    if (diff >= 0 && diff <= 7) {
+      const ehHoje = diff === 0
+      lista.push({
+        id: `niver-${c.id}-${h.y}-${n.m}-${n.d}`,
+        tipo: 'aniversario',
+        categoria: 'Aniversariante',
+        cliente: c,
+        urgente: ehHoje,
+        dias: diff,
+        titulo: ehHoje ? 'Aniversário hoje!' : `Aniversário em ${diff === 1 ? '1 dia' : `${diff} dias`} (${String(n.d).padStart(2, '0')}/${String(n.m).padStart(2, '0')})`,
+        detalhe: ehHoje ? 'Parabenize o cliente e ofereça um brinde da loja!' : `Aniversário dia ${String(n.d).padStart(2, '0')}/${String(n.m).padStart(2, '0')}`,
+        mensagem: `Feliz aniversário, seu ${primeiroNome(c.nome)}! Toda a equipe do Studio Seiko deseja muita saúde e felicidade. Temos um brinde especial para você, passe aqui na loja para retirar!`,
+      })
+    }
+  }
+  return lista.sort((a, b) => a.dias - b.dias || a.cliente.nome.localeCompare(b.cliente.nome, 'pt-BR'))
+}
+
+export function notificacoesGarantia(clients, services, hoje) {
+  const porId = new Map((clients || []).map((c) => [c.id, c]))
+  const lista = []
+  for (const s of services || []) {
+    if (!s.garantiaAte || !isISODate(s.garantiaAte)) continue
+    const dias = diasEntre(hoje, s.garantiaAte)
+    if (dias >= -2 && dias <= 15) {
+      const c = porId.get(s.clienteId)
+      if (!c) continue
+      const ehHoje = dias === 0
+      lista.push({
+        id: `garantia-${s.id}-${s.garantiaAte}`,
+        tipo: 'garantia',
+        categoria: 'Garantia',
+        cliente: c,
+        servico: s,
+        urgente: dias <= 3,
+        dias,
+        titulo: dias < 0 ? 'Garantia vencida recentemente' : ehHoje ? 'Garantia vence hoje!' : `Garantia vence em ${dias === 1 ? '1 dia' : `${dias} dias`}`,
+        detalhe: `${s.tipo || 'Serviço'}${s.marca ? ` · ${s.marca}` : ''} · Até ${dataCurta(s.garantiaAte)}`,
+        mensagem: `Olá, seu ${primeiroNome(c.nome)}! Aqui é do Studio Seiko. A garantia do seu serviço (${s.tipo || 'relógio'}) vence em ${dataCurta(s.garantiaAte)}. Se precisar de algum ajuste ou revisão, estamos à sua disposição!`,
+      })
+    }
+  }
+  return lista.sort((a, b) => a.dias - b.dias)
+}
+
+export function notificacoesCobranca(clients, promissorias, hoje) {
+  const porId = new Map((clients || []).map((c) => [c.id, c]))
+  const lista = []
+  for (const p of promissorias || []) {
+    const fin = financeiroProm(p, hoje)
+    if (fin.saldo <= 0.01) continue
+    const ultPag = (p.pagamentos || []).map((x) => x.data).filter(Boolean).sort().reverse()[0]
+    const dataRef = ultPag || p.vencimento || p.dataVenda
+    if (!dataRef) continue
+    const diasSemPagar = diasEntre(dataRef, hoje)
+    if (diasSemPagar >= 60) {
+      const c = porId.get(p.clienteId)
+      if (!c) continue
+      const meses = Math.floor(diasSemPagar / 30)
+      lista.push({
+        id: `cobranca-${p.id}`,
+        tipo: 'cobranca',
+        categoria: 'Cobrança',
+        cliente: c,
+        promissoria: p,
+        saldo: fin.saldo,
+        diasSemPagar,
+        urgente: diasSemPagar >= 90,
+        titulo: `Sem pagar há ${diasSemPagar} dias (~${meses} meses)`,
+        detalhe: `${p.produto || 'Promissória'} · Saldo devedor: ${moeda(fin.saldo)}`,
+        mensagem: `Olá, seu ${primeiroNome(c.nome)}! Tudo bem? Aqui é do Studio Seiko. Notamos que sua promissória do ${p.produto || 'relógio'} está com saldo de ${moeda(fin.saldo)} em aberto há algum tempo. Poderia passar aqui para conversarmos e acertarmos? Estamos à sua disposição!`,
+      })
+    }
+  }
+  return lista.sort((a, b) => b.diasSemPagar - a.diasSemPagar)
+}
+
+export function obterTodasNotificacoes(clients, services, promissorias, hoje) {
+  const nivers = notificacoesAniversario(clients, hoje)
+  const garantias = notificacoesGarantia(clients, services, hoje)
+  const cobrancas = notificacoesCobranca(clients, promissorias, hoje)
+  const todas = [...nivers, ...garantias, ...cobrancas]
+  return {
+    todas,
+    nivers,
+    garantias,
+    cobrancas,
+    total: todas.length,
+  }
+}
+
