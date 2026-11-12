@@ -741,7 +741,7 @@ function Promissorias({ clients, promissorias, hoje, abrirPromissoria, verPromis
           acao={filtro === 'todas' ? <button type="button" className="btn gold" onClick={() => abrirPromissoria()}>Nova promissória</button> : null}
         />
       ) : (
-        <ul className="lista">
+        <ul className="lista lista-promissorias">
           {lista.map(({ p, fin }) => {
             const c = porId.get(p.clienteId)
             return (

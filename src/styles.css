@@ -2171,6 +2171,85 @@ button.link:hover {
   .resumo-prom {
     grid-template-columns: 1fr;
   }
+
+  /* Compactação dos cards de promissórias e devedores no mobile */
+  .lista {
+    gap: 6px;
+  }
+
+  .lista li {
+    padding: 9px 11px;
+  }
+
+  .lista-promissorias li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    padding: 8px 10px;
+    gap: 1px 10px;
+    align-items: center;
+  }
+
+  .lista-promissorias li .lista-main {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .lista-promissorias li .lista-main .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .lista-promissorias li .lista-main span {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .lista-promissorias li .lista-main strong {
+    font-size: 13.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lista-promissorias li .lista-main small {
+    display: block;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--muted);
+  }
+
+  .lista-promissorias li .lista-saldo {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .lista-promissorias li .lista-saldo small {
+    display: none;
+  }
+
+  .lista-promissorias li .lista-saldo b {
+    font-size: 13.5px;
+    line-height: 1.2;
+  }
+
+  .lista-promissorias li .selo {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    padding: 1px 7px;
+    font-size: 10px;
+    margin-top: 2px;
+  }
 }
 
 /* ==========================================================================
