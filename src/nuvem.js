@@ -15,7 +15,7 @@ function temGente(dados) {
 async function lerNuvem(cfg) {
   const res = await fetch(`${cfg.url}/rest/v1/crm_estado?id=eq.1&select=dados,atualizado_em`, {
     headers: cabecalhos(cfg),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(4000),
   })
   if (res.status === 404) return { pronta: false }
   if (!res.ok) return { pronta: false }
@@ -30,7 +30,7 @@ async function escreverNuvem(cfg, dados, emEsperado) {
       method: 'POST',
       headers: { ...cabecalhos(cfg), Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ id: 1, dados, atualizado_em }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     })
     return res.ok ? atualizado_em : ''
   }
@@ -40,7 +40,7 @@ async function escreverNuvem(cfg, dados, emEsperado) {
       method: 'PATCH',
       headers: { ...cabecalhos(cfg), Prefer: 'return=representation' },
       body: JSON.stringify({ dados, atualizado_em }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
     },
   )
   if (!res.ok) return ''
@@ -60,6 +60,7 @@ function crmDe(dados) {
 
 export async function sincronizarNuvem(est, cfg) {
   if (!cfg?.url || !cfg?.chave || !cfg?.segredo) return false
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false
   let lido
   try {
     lido = await lerNuvem(cfg)

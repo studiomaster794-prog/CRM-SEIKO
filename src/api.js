@@ -94,6 +94,7 @@ function crmDeDados(dados) {
 }
 
 async function tentarRemoto(path, opts = {}) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
   const destinos = [{ base: '', token: '' }]
   const hub = destinoHub()
   if (hub) destinos.push({ base: hub.url, token: hub.token })
@@ -108,7 +109,7 @@ async function tentarRemoto(path, opts = {}) {
         },
         method: opts.method || 'GET',
         body: opts.body ? JSON.stringify(opts.body) : undefined,
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(2000),
       })
       const text = await res.text()
       let data = null
@@ -348,8 +349,14 @@ export async function api(path, opts = {}) {
 export async function sincronizarAgora() {
   return emFila(async () => {
     const est = await garantir()
+    const tinhaPendente = est.outbox.length > 0
     const nuvemOk = await alinhar(est)
-    if (nuvemOk) return dadosPublicos(est.crm)
+    if (nuvemOk) {
+      if (tinhaPendente && est.outbox.length === 0) {
+        aoAvisar('Alterações sincronizadas com a nuvem com sucesso!')
+      }
+      return dadosPublicos(est.crm)
+    }
     const dados = await mesclarRemoto(est)
     return dados || dadosPublicos(est.crm)
   })
@@ -359,4 +366,12 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     sincronizarAgora().catch(() => {})
   })
+  window.addEventListener('focus', () => {
+    sincronizarAgora().catch(() => {})
+  })
+  setInterval(() => {
+    if (navigator.onLine && textoAtual.pendente) {
+      sincronizarAgora().catch(() => {})
+    }
+  }, 20000)
 }
